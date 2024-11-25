@@ -8,6 +8,7 @@ import mod_pywebsocket.common
 from mod_pywebsocket.stream import Stream
 from mod_pywebsocket.stream import StreamOptions
 
+import numpy as np
 
 import sys
 
@@ -16,7 +17,7 @@ import threading
 
 #-------------
 
-xth = 0
+#xth = 0
 
 def start_secondary():
   y = 0
@@ -74,6 +75,8 @@ secondary_thread.daemon = True #ensures both threads are killed on cntl C
 
 print ( "SYSTEM IS ", sys.version_info)
 
+
+# I REALLY want to loose this
 if sys.version_info > (3,):
     print( "SYS V 3")
     buffer = memoryview
@@ -84,8 +87,8 @@ else:
         return str(b)
 
 # A couple of arrays - to be investigated
-exp_line =  bytearray(1024)
-xfer_line = bytearray(1024)
+#exp_line =  bytearray(1024)
+
 
 # Local UDP-ZXP port to monitor activity (ZXP Style) >>>
 localIP     = "192.168.2.2"
@@ -113,10 +116,10 @@ address = bytesAddressPair[1]
 #print(clientIP)
 
 #test pattern
-for i in range(1024):
-    xfer_line[i] =  i // 8
-    i=i+5
-xfer_line[0] = 0x42  #the magic number for ZXP
+#for i in range(1024):
+#    xfer_line[i] =  i // 8
+#    i=i+5
+#xfer_line[0] = 0x42  #the magic number for ZXP
 
 # End of UDP-ZXP stuff <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -129,18 +132,18 @@ bins = 1024
 print ("Number of waterfall bins: %d" % bins)
 
 #zoom = options['zoom']
-zoom = 6
+zoom = 5
 
 print ("Zoom factor:", zoom)
 
-full_span = 32000.0 # for a 30MHz kiwiSDR
+full_span = 30000.0 # for a 30MHz kiwiSDR
 
 if zoom>0:
     span = full_span / 2.**zoom
 else:
 	span = full_span
 
-start = 10000.0 # options['offset_khz']
+start = 15000.0 # options['offset_khz']
 stop = start + span
 rbw = span/bins
 center_freq = span/2+start
@@ -182,47 +185,29 @@ print ("Data stream active...")
 mystream.send_message('SET auth t=kiwi p=')
 mystream.send_message('SET zoom=%d cf=%d'%(zoom,center_freq))
 mystream.send_message('SET maxdb=0 mindb=-100')
-mystream.send_message('SET wf_speed=1')
+mystream.send_message('SET wf_speed=2')
 mystream.send_message('SET wf_comp=0')
 
 print ("Starting to retrieve waterfall data...")
-
-length = 4000
-ktime = 0
+max_time = 500
+k_time = 0
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 secondary_thread.start()
 time.sleep(1)
-#----
-while ktime<length: # Main loop
-    # receive one msg from server
-    temp_line = mystream.receive_message()
 
-    if bytearray2str(temp_line[0:3]) == "W/F": # Needs this for the "buffer=memoryview" Dunno why???
-        temp_line = temp_line[16:] # remove some header from each msg
-        exp_line = temp_line
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>  LOOPIN >>>>>>>>>>>>>>>>>>>>>>>
+xfer_line = bytearray(1040) 
 
-        for i in range(1024):
-            temp = exp_line[i]
-            temp = temp -50
-            xfer_line[i] = temp
-            xfer_line[i] = 255 - xfer_line[i]
-           
-        #xfer_line[500] = 200 #Marker for debug
-        xfer_line[0] = 0x42  #the magic number for ZXP
-
-        #time.sleep(.1)
-        UDPServerSocket.sendto( xfer_line, address) # (thebytesToSend, address)
-        ktime += 1
-        print ("ktime: ",ktime)
-              
-    else: # this is chatter between client and server
-        #print (" LINE 217 !!!!!!!!!!!!!")
-        #time.sleep(1)
-        pass
-
+while k_time < max_time:
+    xfer_line = mystream.receive_message()
+    xfer_line[0] = 0x42  #the magic number for ZXP
+    UDPServerSocket.sendto( xfer_line, address) # (thebytesToSend, address)
+    k_time += 1
+    print ("ktime: ",k_time)
     # end of ktime <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 try:
     mystream.close_connection(mod_pywebsocket.common.STATUS_GOING_AWAY)
     mysocket.close()
@@ -232,5 +217,24 @@ except Exception as e:
 print ("\n All done!")
 
 
-
-
+'''
+while time<length:
+    # receive one msg from server
+    tmp = mystream.receive_message()
+    if bytearray2str(tmp[0:3]) == "W/F": # this is one waterfall line
+        tmp = tmp[16:] # remove some header from each msg
+        if options['verbosity']:
+            print (time)
+        #spectrum = np.array(struct.unpack('%dB'%len(tmp), tmp) ) # convert from binary data to uint8
+        spectrum = np.ndarray(len(tmp), dtype='B', buffer=tmp) # convert from binary data to uint8
+        if filename:
+            binary_wf_list.append(tmp) # append binary data to be saved to file
+        #wf_data[time, :] = spectrum-255 # mirror dBs
+        wf_data[time, :] = spectrum
+        wf_data[time, :] = -(255 - wf_data[time, :])  # dBm
+        wf_data[time, :] = wf_data[time, :] - 13  # typical Kiwi wf cal
+        time += 1
+    else: # this is chatter between client and server
+        #print (tmp)
+        pass
+'''
