@@ -13,48 +13,24 @@ import threading
 
 #-------------
 
+#Handle incoming request message from client
 def start_secondary():
 
-  while True:
-    bytesAddressPair = UDPServerSocket.recvfrom(bufferSize)
-    message = bytesAddressPair[0]
-    address = bytesAddressPair[1]
+    while True:
+        bytesAddressPair = UDPServerSocket.recvfrom(bufferSize)
+        message = bytesAddressPair[0]
+        address = bytesAddressPair[1]
 
-    xyz = message #"Message from Client:{}".format(message)
+        request = message
  
-    
-    if bytearray2str(xyz[0:3]) == "SET":
-        print(xyz)
-        mystream.send_message(xyz)
+        if bytearray2str(request[0:3]) == "SET":
+            print(request)
         
-
-        #fint = bytearray2str[5:7]
-        #set_msg = ('SET ',fint)
+            action = bytearray2str(request[4:20]) #find action required
+            kiwi_msg = ("SET " + action)
+            print("Sending: ", kiwi_msg)
+            mystream.send_message(kiwi_msg)
         
-        #print(" SET message is: ",set_msg)
-
-        #mystream.send_message('SET wf_speed=4')
-        
-    
-
-
-    if bytearray2str(xyz[0:4]) == "fall":
-        fint = bytearray2str(xyz[5:6])
-        mystream.send_message('SET wf_speed=4') #,fint)  #,(fint-'0'))
-        print(" waterfall ",fint)
-    '''
-    if bytearray2str(xyz[0:4]) == "freq":
-        fint = bytearray2str(xyz[5:11])
-
-        show = int(fint)
-        print('$$: ',show)        
-
-        mystream.send_message('SET zoom=6 cf=%d'%(show))  #%d',10260)
-        print(" Frequency is  ", fint)
-
-    if bytearray2str(xyz[0:4]) == "zoom":
-        print(" zooms are us got ")
-    '''
 secondary_thread = threading.Thread(target = start_secondary)
 secondary_thread.daemon = True #ensures both threads are killed on cntl C
 
