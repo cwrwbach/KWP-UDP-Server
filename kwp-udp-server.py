@@ -7,27 +7,15 @@ from kiwi import wsclient
 import mod_pywebsocket.common
 from mod_pywebsocket.stream import Stream
 from mod_pywebsocket.stream import StreamOptions
-
 import numpy as np
-
 import sys
-
-
 import threading
 
 #-------------
 
-#xth = 0
-
 def start_secondary():
-  y = 0
-  while True:
-    y += 1
-    #print("Secondary thread " + str(y) + " and x is " + str(xth))
-    #time.sleep(1.0)
-    #mable=UDPServerSocket.recvfrom(16)
-    #print( "MESSAGE FROM GUI:" , mable)
 
+  while True:
     bytesAddressPair = UDPServerSocket.recvfrom(bufferSize)
     message = bytesAddressPair[0]
     address = bytesAddressPair[1]
@@ -35,10 +23,11 @@ def start_secondary():
     xyz = message #"Message from Client:{}".format(message)
     #print(">>>",xyz)
 
+    #mystream.send_message(xyz)
+    
     if bytearray2str(xyz[0:3]) == "abc":
         print(" ABC got ")
-
-
+    '''
     if bytearray2str(xyz[0:4]) == "fall":
         fint = bytearray2str(xyz[5:6])
         mystream.send_message('SET wf_speed=',fint)  #,(fint-'0'))
@@ -55,26 +44,13 @@ def start_secondary():
 
     if bytearray2str(xyz[0:4]) == "zoom":
         print(" zooms are us got ")
-
-
-    #clientMsg = "Message from Client:{}".format(message)
-    #print(clientMsg)
-
-    #mystream.send_message('SET wf_speed=2')
-
-
+    '''
 secondary_thread = threading.Thread(target = start_secondary)
-
 secondary_thread.daemon = True #ensures both threads are killed on cntl C
-#secondary_thread.start()
 
 #---------
 
-
-
-
 print ( "SYSTEM IS ", sys.version_info)
-
 
 # I REALLY want to loose this
 if sys.version_info > (3,):
@@ -86,40 +62,34 @@ else:
     def bytearray2str(b):
         return str(b)
 
-# A couple of arrays - to be investigated
-#exp_line =  bytearray(1024)
+hostname = socket.gethostname()
+IPAddr = socket.gethostbyname(hostname)
 
+print("Computer Name is:" + hostname)
+print("Computer IP Address is:" + IPAddr)
 
 # Local UDP-ZXP port to monitor activity (ZXP Style) >>>
-localIP     = "192.168.2.2"
-localPort   = 11361
+localIP = IPAddr
+localPort   = 11366
 bufferSize  = 1024
 msgFromServer   = "Hello UDP Client"
 
 # Create a datagram socket
 UDPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
+#The next line did not help with the  "address already in use" issue
+#UDPServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
 # Bind to address and ip
 UDPServerSocket.bind((localIP, localPort))
 
-print("UDP server up and listening")
 
+#print("UDP server up and listening")
 
 # Listen for incoming datagrams
 bytesAddressPair = UDPServerSocket.recvfrom(bufferSize)
 message = bytesAddressPair[0]
 address = bytesAddressPair[1]
-#clientMsg = "Message from Client:{}".format(message)
-#clientIP  = "Client IP Address:{}".format(address)
-
-
-#print(clientIP)
-
-#test pattern
-#for i in range(1024):
-#    xfer_line[i] =  i // 8
-#    i=i+5
-#xfer_line[0] = 0x42  #the magic number for ZXP
 
 # End of UDP-ZXP stuff <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -192,21 +162,33 @@ print ("Starting to retrieve waterfall data...")
 max_time = 500
 k_time = 0
 
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
 secondary_thread.start()
 time.sleep(1)
 
+xfer_line = bytearray(1040)
+temp_line = bytearray(1040)
+
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>  LOOPIN >>>>>>>>>>>>>>>>>>>>>>>
-xfer_line = bytearray(1040) 
 
 while k_time < max_time:
-    xfer_line = mystream.receive_message()
-    xfer_line[0] = 0x42  #the magic number for ZXP
-    UDPServerSocket.sendto( xfer_line, address) # (thebytesToSend, address)
+
+    #xfer_line = mystream.receive_message() #this changes the length of the array soze of xfer_line
+    temp_line = mystream.receive_message() #this changes the length of the array soze of xfer_line
+    lll = len(temp_line)
+    print("Lenny ", lll)
+
+    if lll > 1040:
+        lll = 1040
+
+    for i in range(lll-1):
+        xfer_line[i] = temp_line[i]
+   
+    if True: #k_time > 25:
+        xfer_line[100] = 1  #poke nubmers don't work if xfer_line len was too short !!! crap !!!
+        xfer_line[120] = 254
+    UDPServerSocket.sendto( xfer_line, address) 
     k_time += 1
     print ("ktime: ",k_time)
-    # end of ktime <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 try:
     mystream.close_connection(mod_pywebsocket.common.STATUS_GOING_AWAY)
@@ -216,25 +198,5 @@ except Exception as e:
 
 print ("\n All done!")
 
+#------
 
-'''
-while time<length:
-    # receive one msg from server
-    tmp = mystream.receive_message()
-    if bytearray2str(tmp[0:3]) == "W/F": # this is one waterfall line
-        tmp = tmp[16:] # remove some header from each msg
-        if options['verbosity']:
-            print (time)
-        #spectrum = np.array(struct.unpack('%dB'%len(tmp), tmp) ) # convert from binary data to uint8
-        spectrum = np.ndarray(len(tmp), dtype='B', buffer=tmp) # convert from binary data to uint8
-        if filename:
-            binary_wf_list.append(tmp) # append binary data to be saved to file
-        #wf_data[time, :] = spectrum-255 # mirror dBs
-        wf_data[time, :] = spectrum
-        wf_data[time, :] = -(255 - wf_data[time, :])  # dBm
-        wf_data[time, :] = wf_data[time, :] - 13  # typical Kiwi wf cal
-        time += 1
-    else: # this is chatter between client and server
-        #print (tmp)
-        pass
-'''
