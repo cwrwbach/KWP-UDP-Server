@@ -21,18 +21,28 @@ def start_secondary():
     address = bytesAddressPair[1]
 
     xyz = message #"Message from Client:{}".format(message)
-    #print(">>>",xyz)
-
-    #mystream.send_message(xyz)
+ 
     
-    if bytearray2str(xyz[0:3]) == "abc":
-        print(" ABC got ")
-    '''
+    if bytearray2str(xyz[0:3]) == "SET":
+        print(xyz)
+        mystream.send_message(xyz)
+        
+
+        #fint = bytearray2str[5:7]
+        #set_msg = ('SET ',fint)
+        
+        #print(" SET message is: ",set_msg)
+
+        #mystream.send_message('SET wf_speed=4')
+        
+    
+
+
     if bytearray2str(xyz[0:4]) == "fall":
         fint = bytearray2str(xyz[5:6])
-        mystream.send_message('SET wf_speed=',fint)  #,(fint-'0'))
+        mystream.send_message('SET wf_speed=4') #,fint)  #,(fint-'0'))
         print(" waterfall ",fint)
-
+    '''
     if bytearray2str(xyz[0:4]) == "freq":
         fint = bytearray2str(xyz[5:11])
 
@@ -175,7 +185,7 @@ while k_time < max_time:
     #xfer_line = mystream.receive_message() #this changes the length of the array soze of xfer_line
     temp_line = mystream.receive_message() #this changes the length of the array soze of xfer_line
     lll = len(temp_line)
-    print("Lenny ", lll)
+    #print("Lenny ", lll)
 
     if lll > 1040:
         lll = 1040
@@ -188,7 +198,7 @@ while k_time < max_time:
         xfer_line[120] = 254
     UDPServerSocket.sendto( xfer_line, address) 
     k_time += 1
-    print ("ktime: ",k_time)
+    #print ("ktime: ",k_time)
 
 try:
     mystream.close_connection(mod_pywebsocket.common.STATUS_GOING_AWAY)
